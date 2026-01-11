@@ -37,35 +37,35 @@ const PatsonMachilaTemplate = () => {
   const [doctorSigCropY, setDoctorSigCropY] = useState(0);
   const [invoiceAmounts, setInvoiceAmounts] = useState(() => INVOICE_ROWS.map(() => ''));
 
-  const generatePDF = useCallback(() => {
-    const templateId = activeTemplate === 'invoice' ? 'invoice-container' : 'form-container';
-    const element = document.getElementById(templateId);
-    if (!element || !window.html2pdf) {
-      return;
+  const formatDateShort = (date) => {
+    const months = [
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
+    ];
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    return `${day} ${month} ${year}`;
+  };
+
+  const formatDateForFilename = (value) => {
+    if (!value) {
+      return '';
     }
-
-    const formatDateLong = (date) => {
-      const months = [
-        'JANUARY',
-        'FEBRUARY',
-        'MARCH',
-        'APRIL',
-        'MAY',
-        'JUNE',
-        'JULY',
-        'AUGUST',
-        'SEPTEMBER',
-        'OCTOBER',
-        'NOVEMBER',
-        'DECEMBER',
-      ];
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = months[date.getMonth()];
-      const year = date.getFullYear();
-      return `${day} - ${month} - ${year}`;
-    };
-
-    const formatDateShort = (date) => {
+    const trimmed = value.trim();
+    const match = trimmed.match(/^(\d{2})\s*-\s*(\d{2})\s*-\s*(\d{4})$/);
+    if (match) {
+      const [, day, month, year] = match;
       const months = [
         'JAN',
         'FEB',
@@ -80,40 +80,16 @@ const PatsonMachilaTemplate = () => {
         'NOV',
         'DEC',
       ];
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = months[date.getMonth()];
-      const year = date.getFullYear();
-      return `${day} ${month} ${year}`;
-    };
+      const monthName = months[parseInt(month, 10) - 1] || month;
+      return `${day} ${monthName} ${year}`;
+    }
+    return trimmed;
+  };
 
-    const formatDateForFilename = (value) => {
-      if (!value) {
-        return '';
-      }
-      const trimmed = value.trim();
-      const match = trimmed.match(/^(\d{2})-\s*(\d{2})-\s*(\d{4})$/);
-      if (match) {
-        const [, day, month, year] = match;
-        const months = [
-          'JAN',
-          'FEB',
-          'MAR',
-          'APR',
-          'MAY',
-          'JUN',
-          'JUL',
-          'AUG',
-          'SEP',
-          'OCT',
-          'NOV',
-          'DEC',
-        ];
-        const monthName = months[parseInt(month, 10) - 1] || month;
-        return `${day} ${monthName} ${year}`;
-      }
-      return trimmed;
-    };
-
+  const buildFilename = (element) => {
+    if (!element) {
+      return 'PATIENT';
+    }
     const isInvoice = activeTemplate === 'invoice';
     const dateInput = element.querySelector(
       `input[name="${isInvoice ? 'invoiceDate' : 'referralDate'}"]`
@@ -128,10 +104,19 @@ const PatsonMachilaTemplate = () => {
     const fileDate = dateInput && dateInput.value ? formatDateForFilename(dateInput.value) : formatDateShort(today);
     const nameValue = patientNameInput && patientNameInput.value ? patientNameInput.value.trim() : 'PATIENT';
     const idValue = idNumberInput && idNumberInput.value ? idNumberInput.value.trim() : 'ID';
+    return `${nameValue} ${fileDate} ${idValue}`;
+  };
+
+  const generatePDF = useCallback(() => {
+    const templateId = activeTemplate === 'invoice' ? 'invoice-container' : 'form-container';
+    const element = document.getElementById(templateId);
+    if (!element || !window.html2pdf) {
+      return;
+    }
 
     const opt = {
       margin: 0,
-      filename: `${nameValue} ${fileDate} ${idValue}.pdf`,
+      filename: `${buildFilename(element)}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true },
       jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
@@ -141,8 +126,17 @@ const PatsonMachilaTemplate = () => {
   }, [activeTemplate]);
 
   const handlePrint = useCallback(() => {
+    const templateId = activeTemplate === 'invoice' ? 'invoice-container' : 'form-container';
+    const element = document.getElementById(templateId);
+    const previousTitle = document.title;
+    document.title = buildFilename(element);
+    const restoreTitle = () => {
+      document.title = previousTitle;
+      window.removeEventListener('afterprint', restoreTitle);
+    };
+    window.addEventListener('afterprint', restoreTitle);
     window.print();
-  }, []);
+  }, [activeTemplate]);
 
   const processStickerFile = (file) => {
     if (!file) {

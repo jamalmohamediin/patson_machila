@@ -7,9 +7,10 @@ redirects = []
 [functions."*"]
 
 [build]
-publish = "d:\\Naim Tech\\William Ntlele\\dist"
+publish = "D:\\Naim Tech\\Clients\\Patson Machila\\App\\Patson Machila\\dist"
 publishOrigin = "ui"
 commandOrigin = "ui"
+base = "D:\\Naim Tech\\Clients\\Patson Machila\\App\\Patson Machila"
 command = "npm run build"
 
 [build.environment]
