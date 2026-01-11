@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import headerLogo from './src/assets/header-logo.png';
 
 const INVOICE_ROWS = [
@@ -35,9 +35,7 @@ const PatsonMachilaTemplate = () => {
   const [doctorSigCropZoom, setDoctorSigCropZoom] = useState(1);
   const [doctorSigCropX, setDoctorSigCropX] = useState(0);
   const [doctorSigCropY, setDoctorSigCropY] = useState(0);
-  const [invoiceAmounts, setInvoiceAmounts] = useState(
-    () => INVOICE_ROWS.map(() => '')
-  );
+  const [invoiceAmounts, setInvoiceAmounts] = useState(() => INVOICE_ROWS.map(() => ''));
 
   const generatePDF = useCallback(() => {
     const templateId = activeTemplate === 'invoice' ? 'invoice-container' : 'form-container';
@@ -47,10 +45,24 @@ const PatsonMachilaTemplate = () => {
     }
 
     const formatDateLong = (date) => {
+      const months = [
+        'JANUARY',
+        'FEBRUARY',
+        'MARCH',
+        'APRIL',
+        'MAY',
+        'JUNE',
+        'JULY',
+        'AUGUST',
+        'SEPTEMBER',
+        'OCTOBER',
+        'NOVEMBER',
+        'DECEMBER',
+      ];
       const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const month = months[date.getMonth()];
       const year = date.getFullYear();
-      return `${day}-${month}-${year}`;
+      return `${day} - ${month} - ${year}`;
     };
 
     const formatDateShort = (date) => {
@@ -79,9 +91,9 @@ const PatsonMachilaTemplate = () => {
         return '';
       }
       const trimmed = value.trim();
-      if (/^\d{2}-\d{2}-\d{4}$/.test(trimmed)) {
-        const [day, month, year] = trimmed.split('-');
-        const monthIndex = parseInt(month, 10) - 1;
+      const match = trimmed.match(/^(\d{2})-\s*(\d{2})-\s*(\d{4})$/);
+      if (match) {
+        const [, day, month, year] = match;
         const months = [
           'JAN',
           'FEB',
@@ -96,31 +108,12 @@ const PatsonMachilaTemplate = () => {
           'NOV',
           'DEC',
         ];
-        const monthName = months[monthIndex] || month;
-        return `${day} ${monthName} ${year}`;
-      }
-      if (/^\d{2}\s\d{2}\s\d{4}$/.test(trimmed)) {
-        const [day, month, year] = trimmed.split(' ');
-        const monthIndex = parseInt(month, 10) - 1;
-        const months = [
-          'JAN',
-          'FEB',
-          'MAR',
-          'APR',
-          'MAY',
-          'JUN',
-          'JUL',
-          'AUG',
-          'SEP',
-          'OCT',
-          'NOV',
-          'DEC',
-        ];
-        const monthName = months[monthIndex] || month;
+        const monthName = months[parseInt(month, 10) - 1] || month;
         return `${day} ${monthName} ${year}`;
       }
       return trimmed;
     };
+
     const isInvoice = activeTemplate === 'invoice';
     const dateInput = element.querySelector(
       `input[name="${isInvoice ? 'invoiceDate' : 'referralDate'}"]`
@@ -132,7 +125,6 @@ const PatsonMachilaTemplate = () => {
       `input[name="${isInvoice ? 'invoiceAccountNumber' : 'idNumber'}"]`
     );
     const today = new Date();
-    const dateValue = dateInput && dateInput.value ? dateInput.value : formatDateLong(today);
     const fileDate = dateInput && dateInput.value ? formatDateForFilename(dateInput.value) : formatDateShort(today);
     const nameValue = patientNameInput && patientNameInput.value ? patientNameInput.value.trim() : 'PATIENT';
     const idValue = idNumberInput && idNumberInput.value ? idNumberInput.value.trim() : 'ID';
@@ -242,7 +234,15 @@ const PatsonMachilaTemplate = () => {
     const year = now.getFullYear();
     const input = document.querySelector('input[name="referralDate"]');
     if (input) {
-      input.value = `${day}-${month}-${year}`;
+      input.value = `${day}- ${month}- ${year}`;
+      const container = document.getElementById('form-container');
+      if (container) {
+        const fields = container.querySelectorAll('input, textarea');
+        const values = Array.from(fields)
+          .filter((field) => field.type !== 'file')
+          .map((field) => field.value);
+        localStorage.setItem('patson_referral_data', JSON.stringify(values));
+      }
     }
   };
 
@@ -308,17 +308,7 @@ const PatsonMachilaTemplate = () => {
       if (!ctx) {
         return;
       }
-      const drawRatio = sw / sh;
-      let dw = targetWidth;
-      let dh = targetHeight;
-      if (drawRatio > targetWidth / targetHeight) {
-        dh = targetWidth / drawRatio;
-      } else {
-        dw = targetHeight * drawRatio;
-      }
-      const dx = (targetWidth - dw) / 2;
-      const dy = (targetHeight - dh) / 2;
-      ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetWidth, targetHeight);
       setDoctorSignatureImage(canvas.toDataURL('image/png'));
       setDoctorSigCropSrc(null);
     };
@@ -329,18 +319,16 @@ const PatsonMachilaTemplate = () => {
     setDoctorSigCropSrc(null);
   };
 
-  const invoiceTotal = useMemo(() => {
-    const total = invoiceAmounts.reduce((sum, value) => {
-      const parsed = parseFloat(value);
-      return Number.isNaN(parsed) ? sum : sum + parsed;
-    }, 0);
-    return total ? total.toFixed(2) : '';
-  }, [invoiceAmounts]);
+  const invoiceTotal = invoiceAmounts.reduce((sum, value) => {
+    const parsed = parseFloat(value);
+    return Number.isNaN(parsed) ? sum : sum + parsed;
+  }, 0);
 
   const handleInvoiceAmountChange = (index, value) => {
     setInvoiceAmounts((prev) => {
       const next = [...prev];
       next[index] = value;
+      localStorage.setItem('patson_invoice_amounts', JSON.stringify(next));
       return next;
     });
   };
@@ -352,8 +340,85 @@ const PatsonMachilaTemplate = () => {
     const year = now.getFullYear();
     const input = document.querySelector('input[name="invoiceDate"]');
     if (input) {
-      input.value = `${day}-${month}-${year}`;
+      input.value = `${day}- ${month}- ${year}`;
+      const container = document.getElementById('invoice-container');
+      if (container) {
+        const fields = container.querySelectorAll('input, textarea');
+        const values = Array.from(fields)
+          .filter((field) => field.type !== 'file')
+          .map((field) => field.value);
+        localStorage.setItem('patson_invoice_data', JSON.stringify(values));
+      }
     }
+  };
+
+  useEffect(() => {
+    const containerId = activeTemplate === 'invoice' ? 'invoice-container' : 'form-container';
+    const storageKey =
+      activeTemplate === 'invoice' ? 'patson_invoice_data' : 'patson_referral_data';
+    const container = document.getElementById(containerId);
+    if (!container) {
+      return;
+    }
+    const fields = Array.from(container.querySelectorAll('input, textarea')).filter(
+      (field) => field.type !== 'file'
+    );
+    const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    fields.forEach((field, index) => {
+      if (saved[index] !== undefined) {
+        field.value = saved[index];
+      } else {
+        field.value = '';
+      }
+    });
+    if (activeTemplate === 'invoice') {
+      const savedAmounts = JSON.parse(localStorage.getItem('patson_invoice_amounts') || '[]');
+      setInvoiceAmounts(savedAmounts.length ? savedAmounts : INVOICE_ROWS.map(() => ''));
+    }
+    const handleSave = () => {
+      const values = fields.map((field) => field.value);
+      localStorage.setItem(storageKey, JSON.stringify(values));
+    };
+    fields.forEach((field) => field.addEventListener('input', handleSave));
+    return () => {
+      fields.forEach((field) => field.removeEventListener('input', handleSave));
+    };
+  }, [activeTemplate]);
+
+  const clearReferralData = () => {
+    const container = document.getElementById('form-container');
+    if (container) {
+      container.querySelectorAll('input').forEach((input) => {
+        if (input.type !== 'file') {
+          input.value = '';
+        }
+      });
+      container.querySelectorAll('textarea').forEach((textarea) => {
+        textarea.value = '';
+      });
+    }
+    setStickerImage(null);
+    setStickerCropSrc(null);
+    setDoctorSignatureImage(null);
+    setDoctorSigCropSrc(null);
+    localStorage.removeItem('patson_referral_data');
+  };
+
+  const clearInvoiceData = () => {
+    const container = document.getElementById('invoice-container');
+    if (container) {
+      container.querySelectorAll('input').forEach((input) => {
+        if (input.type !== 'file') {
+          input.value = '';
+        }
+      });
+      container.querySelectorAll('textarea').forEach((textarea) => {
+        textarea.value = '';
+      });
+    }
+    setInvoiceAmounts(INVOICE_ROWS.map(() => ''));
+    localStorage.removeItem('patson_invoice_data');
+    localStorage.removeItem('patson_invoice_amounts');
   };
 
   return (
@@ -362,7 +427,6 @@ const PatsonMachilaTemplate = () => {
         {`
           :root {
             --form-width: 800px;
-            --form-padding: 40px;
           }
 
           body {
@@ -379,39 +443,12 @@ const PatsonMachilaTemplate = () => {
           #form-container,
           #invoice-container {
             background-color: white;
-            width: 100%;
-            max-width: var(--form-width);
+            width: var(--form-width);
             min-height: 1050px;
-            padding: var(--form-padding);
+            padding: 40px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
             position: relative;
             box-sizing: border-box;
-          }
-
-          /* Template switch */
-          .template-switch {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 10px;
-          }
-
-          .template-tab {
-            padding: 8px 14px;
-            font-size: 13px;
-            background: #e0e0e0;
-            color: #000;
-            border: 1px solid #000;
-            border-radius: 4px;
-            box-shadow: none;
-          }
-
-          .template-tab:hover {
-            background: #d6d6d6;
-          }
-
-          .template-tab.active {
-            background: #000;
-            color: #fff;
           }
 
           /* Header Section */
@@ -480,6 +517,31 @@ const PatsonMachilaTemplate = () => {
           .header-contact {
             justify-self: end;
             text-align: left;
+          }
+
+          .template-switch {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+          }
+
+          .template-tab {
+            padding: 8px 14px;
+            font-size: 13px;
+            background: #e0e0e0;
+            color: #000;
+            border: 1px solid #000;
+            border-radius: 4px;
+            box-shadow: none;
+          }
+
+          .template-tab:hover {
+            background: #d6d6d6;
+          }
+
+          .template-tab.active {
+            background: #000;
+            color: #fff;
           }
 
           /* Form Body Styles */
@@ -823,29 +885,38 @@ const PatsonMachilaTemplate = () => {
 
           button {
             padding: 12px 25px;
-            background-color: #000;
-            color: white;
-            border: none;
+            background-color: #fff;
+            color: #000;
+            border: 1px solid #000;
             border-radius: 5px;
             cursor: pointer;
             font-size: 16px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: none;
           }
 
           button:hover {
-            background-color: #222;
+            background-color: #f2f2f2;
           }
 
-          .bottom-print {
-            margin-top: 30px;
+          .clear-button {
+            font-size: 16px;
+            padding: 12px 25px;
+          }
+
+          .bottom-actions {
             display: flex;
             justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
           }
 
-          /* Invoice template */
           .invoice-container {
             font-size: 12px;
             text-transform: uppercase;
+          }
+
+          .invoice-header .header-cell.normal-case {
+            text-transform: none;
           }
 
           .invoice-date-row {
@@ -867,6 +938,11 @@ const PatsonMachilaTemplate = () => {
             font-size: 12px;
             padding: 2px 4px;
             background: transparent;
+          }
+
+          .invoice-line-input.medium {
+            flex: 0 0 66%;
+            max-width: 66%;
           }
 
           .invoice-line-input.short {
@@ -893,7 +969,7 @@ const PatsonMachilaTemplate = () => {
 
           .invoice-table {
             margin-top: 18px;
-            border-top: 1px solid #000;
+            border-top: none;
           }
 
           .invoice-table-header {
@@ -977,6 +1053,15 @@ const PatsonMachilaTemplate = () => {
             .today-button {
               display: none !important;
             }
+            .clear-button {
+              display: none !important;
+            }
+            .print-hide {
+              display: none !important;
+            }
+            .template-switch {
+              display: none;
+            }
             .signatures {
               margin-top: -60px;
             }
@@ -989,73 +1074,6 @@ const PatsonMachilaTemplate = () => {
             }
             .radiographer-name {
               top: 120px;
-            }
-            .template-switch {
-              display: none;
-            }
-            .bottom-print {
-              display: none;
-            }
-          }
-
-          @media (max-width: 900px) {
-            :root {
-              --form-padding: 20px;
-            }
-
-            body {
-              padding: 10px;
-            }
-
-            .header-top {
-              grid-template-columns: 1fr;
-              row-gap: 8px;
-              justify-items: center;
-            }
-
-            .header-grid {
-              grid-template-columns: 1fr;
-              row-gap: 6px;
-              text-align: center;
-            }
-
-            .header-contact,
-            .header-right-text {
-              justify-self: center;
-              text-align: center;
-            }
-
-            .col-2 {
-              flex-direction: column;
-              gap: 12px;
-            }
-
-            .row {
-              width: 100% !important;
-            }
-
-            .procedure-container {
-              flex-direction: column;
-            }
-
-            .procedure-box {
-              margin-left: 0;
-              margin-top: 8px;
-            }
-
-            .sticker-box {
-              position: static;
-              margin-top: 20px;
-            }
-
-            .invoice-table {
-              overflow-x: auto;
-            }
-
-            .invoice-table-header,
-            .invoice-table-row,
-            .invoice-total-row {
-              min-width: 620px;
             }
           }
         `}
@@ -1078,16 +1096,22 @@ const PatsonMachilaTemplate = () => {
             Invoice Template
           </button>
         </div>
-        <button type="button" onClick={generatePDF}>
-          Create PDF Document
-        </button>
         <button type="button" onClick={handlePrint} style={{ marginLeft: '10px' }}>
           Print
+        </button>
+        <button
+          type="button"
+          className="clear-button"
+          style={{ marginLeft: '10px' }}
+          onClick={activeTemplate === 'invoice' ? clearInvoiceData : clearReferralData}
+        >
+          Clear All
         </button>
       </div>
 
       {activeTemplate === 'referral' ? (
-      <div id="form-container">
+      <div id="form-container" key="referral">
+        <form autoComplete="off">
         <div className="header-box">
           <div className="header-top">
             <div>
@@ -1198,16 +1222,7 @@ const PatsonMachilaTemplate = () => {
           {!stickerImage && <div className="sticker-title">Sticker</div>}
           <div className="sticker-frame">
             {stickerImage ? (
-              <>
-                <img src={stickerImage} alt="Patient sticker" className="sticker-preview" />
-                <button
-                  type="button"
-                  onClick={() => setStickerImage(null)}
-                  className="sticker-remove print:hidden"
-                >
-                  x
-                </button>
-              </>
+              <img src={stickerImage} alt="Patient sticker" className="sticker-preview" />
             ) : (
               <div className="sticker-preview" aria-label="Sticker placeholder" />
             )}
@@ -1408,15 +1423,20 @@ const PatsonMachilaTemplate = () => {
             <div className="sig-line">Radiographer Signature</div>
           </div>
         </div>
-        <div className="bottom-print">
+        <div className="bottom-actions print-hide">
           <button type="button" onClick={handlePrint}>
             Print
           </button>
+          <button type="button" className="clear-button" onClick={clearReferralData}>
+            Clear All
+          </button>
         </div>
+        </form>
       </div>
       ) : (
-        <div id="invoice-container" className="invoice-container">
-          <div className="header-box">
+        <div id="invoice-container" className="invoice-container" key="invoice">
+          <form autoComplete="off">
+          <div className="header-box invoice-header">
             <div className="header-top">
               <div>
                 <img src={headerLogo} alt="Taurus Imaging logo" className="header-logo" />
@@ -1428,10 +1448,10 @@ const PatsonMachilaTemplate = () => {
               <div></div>
             </div>
             <div className="header-grid">
-              <div className="header-cell">14 Windermere Court</div>
+              <div className="header-cell normal-case">14 Windermere Court</div>
               <div className="header-cell header-center-text">DIP RAD (EHC, LSK/ZM)</div>
-              <div className="header-cell header-contact">Cell: 0814663557</div>
-              <div className="header-cell">15 St James Road</div>
+              <div className="header-cell header-contact normal-case">Cell: 0814663557</div>
+              <div className="header-cell normal-case">15 St James Road</div>
               <div className="header-cell header-center-text">HPCSA: DR0054070</div>
               <div className="header-cell header-contact">0652808581</div>
               <div className="header-cell">BELGRAVIA 5201</div>
@@ -1439,13 +1459,15 @@ const PatsonMachilaTemplate = () => {
               <div className="header-cell header-right-text"></div>
               <div className="header-cell">EAST LONDON</div>
               <div className="header-cell"></div>
-              <div className="header-cell header-contact">Email: machona.machila@gmail.com</div>
+              <div className="header-cell header-contact normal-case">
+                Email: machona.machila@gmail.com
+              </div>
             </div>
           </div>
 
           <div className="invoice-date-row">
             <span className="invoice-label">DATE</span>
-            <input type="text" name="invoiceDate" className="invoice-line-input" />
+            <input type="text" name="invoiceDate" className="invoice-line-input short" />
             <button type="button" className="today-button" onClick={setInvoiceTodayDate}>
               Today
             </button>
@@ -1475,7 +1497,7 @@ const PatsonMachilaTemplate = () => {
           </div>
           <div className="invoice-detail-row">
             <span className="invoice-label">PROCEDURE</span>
-            <input type="text" className="invoice-line-input no-line" />
+            <input type="text" className="invoice-line-input" />
           </div>
 
           <div className="invoice-table">
@@ -1507,20 +1529,24 @@ const PatsonMachilaTemplate = () => {
           </div>
 
           <div className="invoice-total-row">
+            <div></div>
             <div>TOTAL AMOUNT:</div>
             <div></div>
             <div></div>
-            <div></div>
             <div>
-              <input type="text" value={invoiceTotal} readOnly />
+              <input type="text" value={invoiceTotal ? invoiceTotal.toFixed(2) : ''} readOnly />
             </div>
           </div>
 
-          <div className="bottom-print">
+          <div className="bottom-actions print-hide">
             <button type="button" onClick={handlePrint}>
               Print
             </button>
+            <button type="button" className="clear-button" onClick={clearInvoiceData}>
+              Clear All
+            </button>
           </div>
+          </form>
         </div>
       )}
     </>
