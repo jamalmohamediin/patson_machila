@@ -193,8 +193,8 @@ const PatsonMachilaTemplate = () => {
     }
     const img = new Image();
     img.onload = () => {
-      const targetWidth = 300;
-      const targetHeight = 190;
+      const targetWidth = mode === 'invoice' ? 300 : 340;
+      const targetHeight = mode === 'invoice' ? 190 : 210;
       const targetRatio = targetWidth / targetHeight;
       const imageRatio = img.width / img.height;
       const zoom = Math.max(1, mode === 'invoice' ? invoiceStickerCropZoom : stickerCropZoom);
@@ -615,26 +615,17 @@ const PatsonMachilaTemplate = () => {
 
           .sticker-box {
             position: absolute;
-            right: 70px;
+            right: 30px;
             top: 270px;
-            width: 300px;
+            width: 340px;
             font-size: 10px;
             color: #444;
-            height: 250px;
-          }
-
-          .sticker-title {
-            text-align: center;
-            font-size: 10px;
-            margin-top: 90px;
-            margin-bottom: 2px;
-            text-transform: uppercase;
-            color: #666;
+            height: 270px;
           }
 
           .sticker-frame {
-            width: 300px;
-            height: 190px;
+            width: 340px;
+            height: 210px;
             position: relative;
           }
 
@@ -651,7 +642,7 @@ const PatsonMachilaTemplate = () => {
             gap: 6px;
             margin-top: 6px;
             position: absolute;
-            top: 190px;
+            top: 80px;
             left: 0;
             right: 0;
           }
@@ -1039,14 +1030,17 @@ const PatsonMachilaTemplate = () => {
             margin-top: 0;
           }
 
-          .invoice-sticker-box .sticker-title {
-            margin-top: -6px;
-            margin-bottom: 4px;
+          .invoice-sticker-box .sticker-frame {
+            width: 300px;
+            height: 190px;
           }
 
           .invoice-sticker-box .sticker-controls {
-            position: static;
-            margin-top: 6px;
+            position: absolute;
+            top: 90px;
+            left: 0;
+            right: 0;
+            margin-top: 0;
           }
 
           .invoice-table {
@@ -1094,7 +1088,7 @@ const PatsonMachilaTemplate = () => {
           .invoice-total-row input {
             width: 100%;
             border: none;
-            border-bottom: 1px dotted #444;
+            border-bottom: 1px solid #222;
             background: transparent;
             font-size: 12px;
             text-align: right;
@@ -1349,7 +1343,6 @@ const PatsonMachilaTemplate = () => {
         </div>
 
         <div className="sticker-box">
-          {!stickerImage && <div className="sticker-title">Sticker</div>}
           <div className="sticker-frame">
             {stickerImage ? (
               <>
@@ -1639,7 +1632,6 @@ const PatsonMachilaTemplate = () => {
               </div>
             </div>
             <div className="sticker-box invoice-sticker-box">
-              {!invoiceStickerImage && <div className="sticker-title">Sticker</div>}
               <div className="sticker-frame">
                 {invoiceStickerImage ? (
                   <>
