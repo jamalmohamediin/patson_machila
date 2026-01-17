@@ -30,6 +30,11 @@ const PatsonMachilaTemplate = () => {
   const [stickerCropZoom, setStickerCropZoom] = useState(1);
   const [stickerCropX, setStickerCropX] = useState(0);
   const [stickerCropY, setStickerCropY] = useState(0);
+  const [invoiceStickerImage, setInvoiceStickerImage] = useState(null);
+  const [invoiceStickerCropSrc, setInvoiceStickerCropSrc] = useState(null);
+  const [invoiceStickerCropZoom, setInvoiceStickerCropZoom] = useState(1);
+  const [invoiceStickerCropX, setInvoiceStickerCropX] = useState(0);
+  const [invoiceStickerCropY, setInvoiceStickerCropY] = useState(0);
   const [doctorSignatureImage, setDoctorSignatureImage] = useState(null);
   const [doctorSigCropSrc, setDoctorSigCropSrc] = useState(null);
   const [doctorSigCropZoom, setDoctorSigCropZoom] = useState(1);
@@ -138,13 +143,20 @@ const PatsonMachilaTemplate = () => {
     window.print();
   }, [activeTemplate]);
 
-  const processStickerFile = (file) => {
+  const processStickerFile = (file, mode = 'referral') => {
     if (!file) {
       return;
     }
 
     const reader = new FileReader();
     reader.onload = (event) => {
+      if (mode === 'invoice') {
+        setInvoiceStickerCropSrc(event.target.result);
+        setInvoiceStickerCropZoom(1);
+        setInvoiceStickerCropX(0);
+        setInvoiceStickerCropY(0);
+        return;
+      }
       setStickerCropSrc(event.target.result);
       setStickerCropZoom(1);
       setStickerCropX(0);
@@ -153,14 +165,14 @@ const PatsonMachilaTemplate = () => {
     reader.readAsDataURL(file);
   };
 
-  const handleStickerUpload = (event) => {
+  const handleStickerUpload = (event, mode = 'referral') => {
     const file = event.target.files && event.target.files[0];
     if (file) {
-      processStickerFile(file);
+      processStickerFile(file, mode);
     }
   };
 
-  const captureSticker = () => {
+  const captureSticker = (mode = 'referral') => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -168,23 +180,24 @@ const PatsonMachilaTemplate = () => {
     input.onchange = (event) => {
       const file = event.target.files && event.target.files[0];
       if (file) {
-        processStickerFile(file);
+        processStickerFile(file, mode);
       }
     };
     input.click();
   };
 
-  const applyStickerCrop = () => {
-    if (!stickerCropSrc) {
+  const applyStickerCrop = (mode = 'referral') => {
+    const cropSource = mode === 'invoice' ? invoiceStickerCropSrc : stickerCropSrc;
+    if (!cropSource) {
       return;
     }
     const img = new Image();
     img.onload = () => {
-      const targetWidth = 180;
-      const targetHeight = 120;
+      const targetWidth = 300;
+      const targetHeight = 190;
       const targetRatio = targetWidth / targetHeight;
       const imageRatio = img.width / img.height;
-      const zoom = Math.max(1, stickerCropZoom);
+      const zoom = Math.max(1, mode === 'invoice' ? invoiceStickerCropZoom : stickerCropZoom);
       let sw;
       let sh;
 
@@ -198,8 +211,8 @@ const PatsonMachilaTemplate = () => {
 
       const maxOffsetX = (img.width - sw) / 2;
       const maxOffsetY = (img.height - sh) / 2;
-      const offsetX = (stickerCropX / 100) * maxOffsetX;
-      const offsetY = (stickerCropY / 100) * maxOffsetY;
+      const offsetX = ((mode === 'invoice' ? invoiceStickerCropX : stickerCropX) / 100) * maxOffsetX;
+      const offsetY = ((mode === 'invoice' ? invoiceStickerCropY : stickerCropY) / 100) * maxOffsetY;
       const sx = (img.width - sw) / 2 + offsetX;
       const sy = (img.height - sh) / 2 + offsetY;
 
@@ -211,13 +224,22 @@ const PatsonMachilaTemplate = () => {
         return;
       }
       ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetWidth, targetHeight);
+      if (mode === 'invoice') {
+        setInvoiceStickerImage(canvas.toDataURL('image/png'));
+        setInvoiceStickerCropSrc(null);
+        return;
+      }
       setStickerImage(canvas.toDataURL('image/png'));
       setStickerCropSrc(null);
     };
-    img.src = stickerCropSrc;
+    img.src = cropSource;
   };
 
-  const cancelStickerCrop = () => {
+  const cancelStickerCrop = (mode = 'referral') => {
+    if (mode === 'invoice') {
+      setInvoiceStickerCropSrc(null);
+      return;
+    }
     setStickerCropSrc(null);
   };
 
@@ -393,6 +415,8 @@ const PatsonMachilaTemplate = () => {
     }
     setStickerImage(null);
     setStickerCropSrc(null);
+    setInvoiceStickerImage(null);
+    setInvoiceStickerCropSrc(null);
     setDoctorSignatureImage(null);
     setDoctorSigCropSrc(null);
     localStorage.removeItem('patson_referral_data');
@@ -411,6 +435,8 @@ const PatsonMachilaTemplate = () => {
       });
     }
     setInvoiceAmounts(INVOICE_ROWS.map(() => ''));
+    setInvoiceStickerImage(null);
+    setInvoiceStickerCropSrc(null);
     localStorage.removeItem('patson_invoice_data');
     localStorage.removeItem('patson_invoice_amounts');
   };
@@ -552,6 +578,10 @@ const PatsonMachilaTemplate = () => {
             align-items: flex-end;
           }
 
+          .short-field-row {
+            width: 300px;
+          }
+
           .field-label {
             font-size: 13px;
             text-transform: uppercase;
@@ -585,12 +615,12 @@ const PatsonMachilaTemplate = () => {
 
           .sticker-box {
             position: absolute;
-            right: 80px;
-            top: 250px;
-            width: 180px;
+            right: 70px;
+            top: 270px;
+            width: 300px;
             font-size: 10px;
             color: #444;
-            height: 170px;
+            height: 250px;
           }
 
           .sticker-title {
@@ -603,8 +633,8 @@ const PatsonMachilaTemplate = () => {
           }
 
           .sticker-frame {
-            width: 180px;
-            height: 120px;
+            width: 300px;
+            height: 190px;
             position: relative;
           }
 
@@ -621,7 +651,7 @@ const PatsonMachilaTemplate = () => {
             gap: 6px;
             margin-top: 6px;
             position: absolute;
-            top: 120px;
+            top: 190px;
             left: 0;
             right: 0;
           }
@@ -920,6 +950,16 @@ const PatsonMachilaTemplate = () => {
             margin-bottom: 16px;
           }
 
+          .invoice-date-row.short-line {
+            width: 300px;
+            max-width: 300px;
+          }
+
+          .invoice-date-row.short-line .invoice-line-input.short {
+            flex: 1 1 auto;
+            max-width: none;
+          }
+
           .invoice-label {
             min-width: 150px;
             font-size: 12px;
@@ -950,19 +990,67 @@ const PatsonMachilaTemplate = () => {
 
           .invoice-section-title {
             font-size: 12px;
-            margin: 10px 0 8px;
+            margin: 4px 0 4px;
             text-decoration: underline;
+          }
+
+          .invoice-details-section {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            column-gap: 24px;
+            align-items: start;
+            margin-bottom: 4px;
+          }
+
+          .invoice-details-fields {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-width: 300px;
           }
 
           .invoice-detail-row {
             display: flex;
             align-items: center;
             gap: 12px;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
+          }
+
+          .invoice-detail-row.short-line {
+            width: 300px;
+            max-width: 300px;
+          }
+
+          .invoice-detail-row.short-line .invoice-line-input.short {
+            flex: 1 1 auto;
+            max-width: none;
+          }
+
+          .invoice-sticker-box {
+            position: absolute;
+            right: 40px;
+            top: 260px;
+            width: 300px;
+            height: 250px;
+            align-self: start;
+          }
+
+          .invoice-icd-row {
+            margin-top: 0;
+          }
+
+          .invoice-sticker-box .sticker-title {
+            margin-top: -6px;
+            margin-bottom: 4px;
+          }
+
+          .invoice-sticker-box .sticker-controls {
+            position: static;
+            margin-top: 6px;
           }
 
           .invoice-table {
-            margin-top: 18px;
+            margin-top: 4px;
             border-top: none;
           }
 
@@ -1011,6 +1099,54 @@ const PatsonMachilaTemplate = () => {
             font-size: 12px;
             text-align: right;
             padding: 2px 4px;
+          }
+
+          @media (max-width: 900px) {
+            body {
+              padding: 12px;
+              align-items: center;
+              overflow-x: hidden;
+            }
+
+            #form-container,
+            #invoice-container {
+              width: var(--form-width);
+              min-height: 1050px;
+              padding: 40px;
+              transform: translateX(-50%) scale(clamp(0.35, calc((100vw - 24px) / var(--form-width)), 0.9));
+              transform-origin: top left;
+              left: 50%;
+            }
+
+            .controls {
+              position: static;
+              top: auto;
+              width: 100%;
+            }
+
+            .template-switch {
+              flex-wrap: wrap;
+              justify-content: center;
+            }
+
+            .controls button,
+            .bottom-actions button {
+              width: 100%;
+            }
+
+            .bottom-actions {
+              flex-direction: column;
+            }
+
+            .invoice-table {
+              overflow-x: auto;
+            }
+
+            .invoice-table-header,
+            .invoice-table-row,
+            .invoice-total-row {
+              min-width: 540px;
+            }
           }
 
           /* Hide inputs for PDF conversion but keep text */
@@ -1143,22 +1279,22 @@ const PatsonMachilaTemplate = () => {
           </button>
         </div>
 
-        <div className="row" style={{ width: '380px' }}>
+        <div className="row short-field-row">
           <span className="field-label">Patient Name:</span>
           <input type="text" name="patientName" />
         </div>
 
-        <div className="row" style={{ width: '300px' }}>
+        <div className="row short-field-row">
           <span className="field-label">ID Number:</span>
           <input type="text" name="idNumber" />
         </div>
 
-        <div className="row" style={{ width: '300px' }}>
+        <div className="row short-field-row">
           <span className="field-label">Dependant Code:</span>
           <input type="text" />
         </div>
 
-        <div className="row" style={{ width: '400px' }}>
+        <div className="row short-field-row">
           <span className="field-label">Cell/Contact Number:</span>
           <input type="text" />
         </div>
@@ -1216,7 +1352,16 @@ const PatsonMachilaTemplate = () => {
           {!stickerImage && <div className="sticker-title">Sticker</div>}
           <div className="sticker-frame">
             {stickerImage ? (
-              <img src={stickerImage} alt="Patient sticker" className="sticker-preview" />
+              <>
+                <img src={stickerImage} alt="Patient sticker" className="sticker-preview" />
+                <button
+                  type="button"
+                  onClick={() => setStickerImage(null)}
+                  className="sticker-remove print:hidden"
+                >
+                  x
+                </button>
+              </>
             ) : (
               <div className="sticker-preview" aria-label="Sticker placeholder" />
             )}
@@ -1225,9 +1370,14 @@ const PatsonMachilaTemplate = () => {
             <div className="sticker-controls print:hidden">
               <label className="sticker-button">
                 Upload
-                <input type="file" accept="image/*" onChange={handleStickerUpload} hidden />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => handleStickerUpload(event, 'referral')}
+                  hidden
+                />
               </label>
-              <button type="button" className="sticker-button" onClick={captureSticker}>
+              <button type="button" className="sticker-button" onClick={() => captureSticker('referral')}>
                 Photo
               </button>
             </div>
@@ -1281,10 +1431,10 @@ const PatsonMachilaTemplate = () => {
                 </label>
               </div>
               <div className="sticker-crop-actions">
-                <button type="button" onClick={cancelStickerCrop}>
+                <button type="button" onClick={() => cancelStickerCrop('referral')}>
                   Cancel
                 </button>
-                <button type="button" onClick={applyStickerCrop}>
+                <button type="button" onClick={() => applyStickerCrop('referral')}>
                   Use Sticker
                 </button>
               </div>
@@ -1459,7 +1609,7 @@ const PatsonMachilaTemplate = () => {
             </div>
           </div>
 
-          <div className="invoice-date-row">
+          <div className="invoice-date-row short-line">
             <span className="invoice-label">DATE</span>
             <input type="text" name="invoiceDate" className="invoice-line-input short" />
             <button type="button" className="today-button" onClick={setInvoiceTodayDate}>
@@ -1469,23 +1619,119 @@ const PatsonMachilaTemplate = () => {
 
           <div className="invoice-section-title">PATIENT DETAILS</div>
 
-          <div className="invoice-detail-row">
-            <span className="invoice-label">NAME</span>
-            <input type="text" name="invoicePatientName" className="invoice-line-input short" />
+          <div className="invoice-details-section">
+            <div className="invoice-details-fields">
+              <div className="invoice-detail-row short-line">
+                <span className="invoice-label">NAME</span>
+                <input type="text" name="invoicePatientName" className="invoice-line-input short" />
+              </div>
+              <div className="invoice-detail-row short-line">
+                <span className="invoice-label">ACCOUNT NUMBER</span>
+                <input type="text" name="invoiceAccountNumber" className="invoice-line-input short" />
+              </div>
+              <div className="invoice-detail-row short-line">
+                <span className="invoice-label">AUTHORISATION</span>
+                <input type="text" className="invoice-line-input short" />
+              </div>
+              <div className="invoice-detail-row short-line">
+                <span className="invoice-label">TIME</span>
+                <input type="text" className="invoice-line-input short" />
+              </div>
+            </div>
+            <div className="sticker-box invoice-sticker-box">
+              {!invoiceStickerImage && <div className="sticker-title">Sticker</div>}
+              <div className="sticker-frame">
+                {invoiceStickerImage ? (
+                  <>
+                    <img src={invoiceStickerImage} alt="Patient sticker" className="sticker-preview" />
+                    <button
+                      type="button"
+                      onClick={() => setInvoiceStickerImage(null)}
+                      className="sticker-remove print:hidden"
+                    >
+                      x
+                    </button>
+                  </>
+                ) : (
+                  <div className="sticker-preview" aria-label="Sticker placeholder" />
+                )}
+              </div>
+              {!invoiceStickerImage && (
+                <div className="sticker-controls print:hidden">
+                  <label className="sticker-button">
+                    Upload
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) => handleStickerUpload(event, 'invoice')}
+                      hidden
+                    />
+                  </label>
+                  <button type="button" className="sticker-button" onClick={() => captureSticker('invoice')}>
+                    Photo
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="invoice-detail-row">
-            <span className="invoice-label">ACCOUNT NUMBER</span>
-            <input type="text" name="invoiceAccountNumber" className="invoice-line-input short" />
-          </div>
-          <div className="invoice-detail-row">
-            <span className="invoice-label">AUTHORISATION</span>
-            <input type="text" className="invoice-line-input short" />
-          </div>
-          <div className="invoice-detail-row">
-            <span className="invoice-label">TIME</span>
-            <input type="text" className="invoice-line-input short" />
-          </div>
-          <div className="invoice-detail-row">
+          {invoiceStickerCropSrc && (
+            <div className="sticker-modal">
+              <div className="sticker-modal-content">
+                <div
+                  className="sticker-crop-frame"
+                  style={{
+                    backgroundImage: `url(${invoiceStickerCropSrc})`,
+                    backgroundSize: `${invoiceStickerCropZoom * 100}%`,
+                    backgroundPosition: `${50 + invoiceStickerCropX / 2}% ${50 + invoiceStickerCropY / 2}%`,
+                  }}
+                />
+                <div className="sticker-crop-controls">
+                  <label>
+                    Zoom
+                    <input
+                      type="range"
+                      min="1"
+                      max="3"
+                      step="0.1"
+                      value={invoiceStickerCropZoom}
+                      onChange={(e) => setInvoiceStickerCropZoom(parseFloat(e.target.value))}
+                    />
+                  </label>
+                  <label>
+                    Horizontal
+                    <input
+                      type="range"
+                      min="-100"
+                      max="100"
+                      step="1"
+                      value={invoiceStickerCropX}
+                      onChange={(e) => setInvoiceStickerCropX(parseInt(e.target.value, 10))}
+                    />
+                  </label>
+                  <label>
+                    Vertical
+                    <input
+                      type="range"
+                      min="-100"
+                      max="100"
+                      step="1"
+                      value={invoiceStickerCropY}
+                      onChange={(e) => setInvoiceStickerCropY(parseInt(e.target.value, 10))}
+                    />
+                  </label>
+                </div>
+                <div className="sticker-crop-actions">
+                  <button type="button" onClick={() => cancelStickerCrop('invoice')}>
+                    Cancel
+                  </button>
+                  <button type="button" onClick={() => applyStickerCrop('invoice')}>
+                    Use Sticker
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="invoice-detail-row invoice-icd-row">
             <span className="invoice-label">ICD 10 CODES:</span>
             <input type="text" className="invoice-line-input short" />
           </div>
