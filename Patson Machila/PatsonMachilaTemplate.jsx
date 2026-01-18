@@ -1119,9 +1119,11 @@ const PatsonMachilaTemplate = () => {
               width: var(--form-width);
               min-height: 1050px;
               padding: 40px;
-              transform: translateX(-50%) scale(clamp(0.35, calc((100vw - 24px) / var(--form-width)), 0.9));
-              transform-origin: top left;
-              left: 50%;
+              transform: scale(clamp(0.35, calc((100vw - 24px) / var(--form-width)), 0.9));
+              transform-origin: top center;
+              margin: 0 auto;
+              left: auto;
+              right: auto;
             }
 
             .controls {
