@@ -123,7 +123,16 @@ const PatsonMachilaTemplate = () => {
       margin: 0,
       filename: `${buildFilename(element)}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
+      html2canvas: { 
+        scale: 2, 
+        useCORS: true,
+        x: 0,
+        y: 0,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight
+      },
       jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
     };
 
@@ -195,26 +204,17 @@ const PatsonMachilaTemplate = () => {
     img.onload = () => {
       const targetWidth = mode === 'invoice' ? 300 : 340;
       const targetHeight = mode === 'invoice' ? 190 : 210;
-      const targetRatio = targetWidth / targetHeight;
-      const imageRatio = img.width / img.height;
       const zoom = Math.max(1, mode === 'invoice' ? invoiceStickerCropZoom : stickerCropZoom);
-      let sw;
-      let sh;
-
-      if (imageRatio > targetRatio) {
-        sh = img.height / zoom;
-        sw = sh * targetRatio;
-      } else {
-        sw = img.width / zoom;
-        sh = sw / targetRatio;
-      }
-
-      const maxOffsetX = (img.width - sw) / 2;
-      const maxOffsetY = (img.height - sh) / 2;
+      const baseScale = Math.min(targetWidth / img.width, targetHeight / img.height);
+      const scale = baseScale * zoom;
+      const drawWidth = img.width * scale;
+      const drawHeight = img.height * scale;
+      const maxOffsetX = Math.max(0, (drawWidth - targetWidth) / 2);
+      const maxOffsetY = Math.max(0, (drawHeight - targetHeight) / 2);
       const offsetX = ((mode === 'invoice' ? invoiceStickerCropX : stickerCropX) / 100) * maxOffsetX;
       const offsetY = ((mode === 'invoice' ? invoiceStickerCropY : stickerCropY) / 100) * maxOffsetY;
-      const sx = (img.width - sw) / 2 + offsetX;
-      const sy = (img.height - sh) / 2 + offsetY;
+      const dx = (targetWidth - drawWidth) / 2 + offsetX;
+      const dy = (targetHeight - drawHeight) / 2 + offsetY;
 
       const canvas = document.createElement('canvas');
       canvas.width = targetWidth;
@@ -223,7 +223,8 @@ const PatsonMachilaTemplate = () => {
       if (!ctx) {
         return;
       }
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetWidth, targetHeight);
+      ctx.clearRect(0, 0, targetWidth, targetHeight);
+      ctx.drawImage(img, dx, dy, drawWidth, drawHeight);
       if (mode === 'invoice') {
         setInvoiceStickerImage(canvas.toDataURL('image/png'));
         setInvoiceStickerCropSrc(null);
@@ -703,8 +704,8 @@ const PatsonMachilaTemplate = () => {
 
           .sticker-remove {
             position: absolute;
-            top: 2px;
-            right: 2px;
+            top: -8px;
+            right: -8px;
             width: 16px;
             height: 16px;
             border: none;
@@ -712,6 +713,7 @@ const PatsonMachilaTemplate = () => {
             color: #fff;
             font-size: 10px;
             cursor: pointer;
+            z-index: 2;
           }
 
           .procedure-container {
@@ -1085,17 +1087,27 @@ const PatsonMachilaTemplate = () => {
             font-size: 11px;
           }
 
+          .invoice-total-label {
+            grid-column: 1 / 5;
+            justify-self: end;
+            padding-right: 8px;
+          }
+
+          .invoice-total-amount {
+            grid-column: 5 / 6;
+          }
+
           .invoice-total-row input {
             width: 100%;
             border: none;
-            border-bottom: 1px solid #222;
+            border-bottom: 1px dotted #444;
             background: transparent;
-            font-size: 12px;
-            text-align: right;
-            padding: 2px 4px;
+            font-size: 11px;
+            text-align: center;
+            padding: 1px 2px;
           }
 
-          @media (max-width: 900px) {
+          @media screen and (max-width: 900px) {
             body {
               padding: 12px;
               align-items: center;
@@ -1145,36 +1157,135 @@ const PatsonMachilaTemplate = () => {
 
           /* Hide inputs for PDF conversion but keep text */
           @media print {
-            html,
-            body {
+            @page {
+              size: A4 portrait;
+              margin: 0;
+            }
+            * {
+              box-sizing: border-box;
+            }
+            html {
               width: 210mm;
               height: 297mm;
-              overflow: hidden;
-            }
-            @page {
-              size: A4;
               margin: 0;
-            }
-            .controls {
-              display: none;
+              padding: 0;
             }
             body {
-              padding: 0;
-              margin: 0;
+              width: 210mm !important;
+              height: 297mm !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              overflow: visible !important;
+              display: block !important;
+              background: white !important;
+            }
+            /* Reset any wrapper containers */
+            body > div,
+            body > div > div {
+              width: 100% !important;
+              max-width: 100% !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              transform: none !important;
+            }
+            .controls,
+            .template-switch,
+            .clear-button,
+            .print-hide,
+            .bottom-actions {
+              display: none !important;
             }
             #form-container,
             #invoice-container {
-              box-shadow: none;
-              width: 210mm;
-              height: 297mm;
-              min-height: 0;
-              padding: 10mm;
-              transform: scale(0.75);
-              transform-origin: top left;
+              box-shadow: none !important;
+              width: 210mm !important;
+              max-width: 210mm !important;
+              min-width: 210mm !important;
+              max-height: 297mm !important;
+              height: auto !important;
+              padding: 8mm !important;
+              margin: 0 !important;
+              transform: none !important;
+              transform-origin: unset !important;
+              position: relative !important;
+              left: 0 !important;
+              right: 0 !important;
+              page-break-after: avoid !important;
+              page-break-inside: avoid !important;
+              overflow: hidden !important;
+              box-sizing: border-box !important;
+            }
+            /* Ensure all internal content fits */
+            #form-container *,
+            #invoice-container * {
+              max-width: 100% !important;
+              overflow-wrap: break-word !important;
+              word-wrap: break-word !important;
+            }
+            /* Ensure grid columns don't overflow */
+            .header-grid,
+            .header-top {
+              max-width: 100% !important;
+              width: 100% !important;
+            }
+            /* Reduce spacing in print mode */
+            .header-box {
+              margin-bottom: 15px !important;
+              padding: 2px 10px 6px !important;
+            }
+            h3.title {
+              margin-bottom: 12px !important;
+              font-size: 14px !important;
+            }
+            .row {
+              margin-bottom: 6px !important;
+            }
+            .bottom-sections {
+              margin-top: 12px !important;
+            }
+            .procedure-container {
+              margin-top: 12px !important;
+            }
+            .procedure-box {
+              height: 60px !important;
+              padding: 6px !important;
+            }
+            /* Invoice specific spacing */
+            .invoice-section-title {
+              margin: 2px 0 2px !important;
+              font-size: 11px !important;
+            }
+            .invoice-date-row,
+            .invoice-detail-row {
+              margin-bottom: 3px !important;
+            }
+            .invoice-table {
+              margin-top: 2px !important;
+            }
+            .invoice-table-header {
+              padding: 3px 0 2px !important;
+              font-size: 10px !important;
+            }
+            .invoice-table-row {
+              padding: 2px 0 !important;
+              font-size: 10px !important;
+            }
+            .invoice-total-row {
+              margin-top: 8px !important;
+              font-size: 10px !important;
+            }
+            .invoice-table {
+              overflow-x: visible !important;
+            }
+            .invoice-table-header,
+            .invoice-table-row,
+            .invoice-total-row {
+              min-width: 0 !important;
             }
             .sticker-controls,
             .signature-controls,
-            .today-button {
+            .today-button,
+            .sticker-remove {
               display: none !important;
             }
             .clear-button {
@@ -1187,17 +1298,60 @@ const PatsonMachilaTemplate = () => {
               display: none;
             }
             .signatures {
-              margin-top: -60px;
+              margin-top: 15px !important;
+              column-gap: 40px !important;
             }
             .signature-left,
             .signature-right {
-              min-height: 140px;
+              min-height: 100px !important;
             }
             .signature-area {
-              margin-top: 60px;
+              margin-top: 0 !important;
+              height: 60px !important;
+              margin-bottom: 4px !important;
             }
             .radiographer-name {
-              top: 120px;
+              top: 60px !important;
+              font-size: 16px !important;
+            }
+            .sig-line,
+            .signature-label {
+              height: 24px !important;
+              font-size: 9px !important;
+              width: 180px !important;
+            }
+            /* Prevent page breaks */
+            .sticker-box,
+            .procedure-container,
+            .bottom-sections,
+            .invoice-table,
+            .invoice-total-row {
+              page-break-inside: avoid !important;
+            }
+            /* Adjust sticker boxes in print */
+            .sticker-box {
+              top: 220px !important;
+              width: 280px !important;
+              height: 200px !important;
+              right: 15px !important;
+            }
+            .sticker-frame {
+              width: 280px !important;
+              height: 160px !important;
+            }
+            .invoice-sticker-box {
+              top: 200px !important;
+              width: 260px !important;
+              height: 180px !important;
+              right: 15px !important;
+            }
+            .invoice-sticker-box .sticker-frame {
+              width: 260px !important;
+              height: 150px !important;
+            }
+            /* Ensure no horizontal overflow */
+            html, body {
+              overflow-x: hidden !important;
             }
           }
         `}
@@ -1347,18 +1501,20 @@ const PatsonMachilaTemplate = () => {
             {stickerImage ? (
               <>
                 <img src={stickerImage} alt="Patient sticker" className="sticker-preview" />
-                <button
-                  type="button"
-                  onClick={() => setStickerImage(null)}
-                  className="sticker-remove print:hidden"
-                >
-                  x
-                </button>
               </>
             ) : (
               <div className="sticker-preview" aria-label="Sticker placeholder" />
             )}
           </div>
+          {stickerImage && (
+            <button
+              type="button"
+              onClick={() => setStickerImage(null)}
+              className="sticker-remove print:hidden"
+            >
+              x
+            </button>
+          )}
           {!stickerImage && (
             <div className="sticker-controls print:hidden">
               <label className="sticker-button">
@@ -1636,18 +1792,20 @@ const PatsonMachilaTemplate = () => {
                 {invoiceStickerImage ? (
                   <>
                     <img src={invoiceStickerImage} alt="Patient sticker" className="sticker-preview" />
-                    <button
-                      type="button"
-                      onClick={() => setInvoiceStickerImage(null)}
-                      className="sticker-remove print:hidden"
-                    >
-                      x
-                    </button>
                   </>
                 ) : (
                   <div className="sticker-preview" aria-label="Sticker placeholder" />
                 )}
               </div>
+              {invoiceStickerImage && (
+                <button
+                  type="button"
+                  onClick={() => setInvoiceStickerImage(null)}
+                  className="sticker-remove print:hidden"
+                >
+                  x
+                </button>
+              )}
               {!invoiceStickerImage && (
                 <div className="sticker-controls print:hidden">
                   <label className="sticker-button">
@@ -1761,11 +1919,8 @@ const PatsonMachilaTemplate = () => {
           </div>
 
           <div className="invoice-total-row">
-            <div></div>
-            <div>TOTAL AMOUNT:</div>
-            <div></div>
-            <div></div>
-            <div>
+            <div className="invoice-total-label">TOTAL AMOUNT:</div>
+            <div className="invoice-total-amount">
               <input type="text" value={invoiceTotal ? invoiceTotal.toFixed(2) : ''} readOnly />
             </div>
           </div>

@@ -12,7 +12,7 @@ To use this, save the code below as an `.html` file (e.g., `referral-form.html`)
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         :root {
-            --form-width: 800px;
+            --form-width: 210mm;
         }
 
         body {
@@ -30,7 +30,7 @@ To use this, save the code below as an `.html` file (e.g., `referral-form.html`)
             background-color: white;
             width: 100%;
             max-width: var(--form-width);
-            min-height: 1050px;
+            min-height: 297mm;
             padding: 40px;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
             position: relative;
@@ -93,7 +93,7 @@ To use this, save the code below as an `.html` file (e.g., `referral-form.html`)
 
         .sticker-box {
             position: absolute;
-            right: 350px;
+            right: 30px;
             top: 650px;
             font-size: 11px;
             color: #666;
@@ -411,8 +411,8 @@ To use this, save the code below as an `.html` file (e.g., `referral-form.html`)
                 margin:       0,
                 filename:     'Intraoperative_Fluoroscopy_Referral.pdf',
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true },
-                jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+                html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
             // Run html2pdf
