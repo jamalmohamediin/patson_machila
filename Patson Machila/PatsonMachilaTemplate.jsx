@@ -139,9 +139,33 @@ const PatsonMachilaTemplate = () => {
     window.html2pdf().set(opt).from(element).save();
   }, [activeTemplate]);
 
-  const handlePrint = useCallback(() => {
+  const waitForImages = (root) => {
+    if (!root) {
+      return Promise.resolve();
+    }
+    const images = Array.from(root.querySelectorAll('img')).filter((img) => img.src);
+    const waits = images.map((img) => {
+      if (img.complete) {
+        return Promise.resolve();
+      }
+      if (img.decode) {
+        return img.decode().catch(() => undefined);
+      }
+      return new Promise((resolve) => {
+        img.addEventListener('load', resolve, { once: true });
+        img.addEventListener('error', resolve, { once: true });
+      });
+    });
+    return Promise.all(waits);
+  };
+
+  const handlePrint = useCallback(async () => {
     const templateId = activeTemplate === 'invoice' ? 'invoice-container' : 'form-container';
     const element = document.getElementById(templateId);
+    const printContainers = ['form-container', 'invoice-container']
+      .map((id) => document.getElementById(id))
+      .filter(Boolean);
+    await Promise.all(printContainers.map(waitForImages));
     const previousTitle = document.title;
     document.title = buildFilename(element);
     const restoreTitle = () => {
@@ -1437,6 +1461,11 @@ const PatsonMachilaTemplate = () => {
         <div className="row short-field-row">
           <span className="field-label">ID Number:</span>
           <input type="text" name="idNumber" />
+        </div>
+
+        <div className="row short-field-row">
+          <span className="field-label">Authorisation No.:</span>
+          <input type="text" />
         </div>
 
         <div className="row short-field-row">
