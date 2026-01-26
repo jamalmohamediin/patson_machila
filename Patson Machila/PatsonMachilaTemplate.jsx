@@ -91,11 +91,11 @@ const PatsonMachilaTemplate = () => {
     return trimmed;
   };
 
-  const buildFilename = (element) => {
+  const buildFilename = (element, invoiceOverride = null) => {
     if (!element) {
       return 'PATIENT';
     }
-    const isInvoice = activeTemplate === 'invoice';
+    const isInvoice = typeof invoiceOverride === 'boolean' ? invoiceOverride : activeTemplate === 'invoice';
     const dateInput = element.querySelector(
       `input[name="${isInvoice ? 'invoiceDate' : 'referralDate'}"]`
     );
@@ -160,14 +160,20 @@ const PatsonMachilaTemplate = () => {
   };
 
   const handlePrint = useCallback(async () => {
-    const templateId = activeTemplate === 'invoice' ? 'invoice-container' : 'form-container';
-    const element = document.getElementById(templateId);
+    const referralElement = document.getElementById('form-container');
+    const invoiceElement = document.getElementById('invoice-container');
     const printContainers = ['form-container', 'invoice-container']
       .map((id) => document.getElementById(id))
       .filter(Boolean);
     await Promise.all(printContainers.map(waitForImages));
     const previousTitle = document.title;
-    document.title = buildFilename(element);
+    let filename = 'PATIENT';
+    if (referralElement) {
+      filename = buildFilename(referralElement, false);
+    } else if (invoiceElement) {
+      filename = buildFilename(invoiceElement, true);
+    }
+    document.title = filename;
     const restoreTitle = () => {
       document.title = previousTitle;
       window.removeEventListener('afterprint', restoreTitle);
@@ -226,8 +232,8 @@ const PatsonMachilaTemplate = () => {
     }
     const img = new Image();
     img.onload = () => {
-      const targetWidth = mode === 'invoice' ? 300 : 340;
-      const targetHeight = mode === 'invoice' ? 190 : 210;
+      const targetWidth = mode === 'invoice' ? 380 : 400;
+      const targetHeight = mode === 'invoice' ? 250 : 250;
       const zoom = Math.max(1, mode === 'invoice' ? invoiceStickerCropZoom : stickerCropZoom);
       const baseScale = Math.min(targetWidth / img.width, targetHeight / img.height);
       const scale = baseScale * zoom;
@@ -640,17 +646,17 @@ const PatsonMachilaTemplate = () => {
 
           .sticker-box {
             position: absolute;
-            right: 30px;
+            right: 45px;
             top: 270px;
-            width: 340px;
+            width: 400px;
             font-size: 10px;
             color: #444;
-            height: 270px;
+            height: 310px;
           }
 
           .sticker-frame {
-            width: 340px;
-            height: 210px;
+            width: 400px;
+            height: 250px;
             position: relative;
           }
 
@@ -796,7 +802,7 @@ const PatsonMachilaTemplate = () => {
             height: 100px;
             margin-bottom: 6px;
             width: 100%;
-            overflow: hidden;
+            overflow: visible;
             position: relative;
           }
 
@@ -879,8 +885,8 @@ const PatsonMachilaTemplate = () => {
 
           .signature-remove {
             position: absolute;
-            top: 2px;
-            right: 2px;
+            top: -14px;
+            right: -14px;
             width: 16px;
             height: 16px;
             border: none;
@@ -1045,10 +1051,10 @@ const PatsonMachilaTemplate = () => {
 
           .invoice-sticker-box {
             position: absolute;
-            right: 40px;
-            top: 260px;
-            width: 300px;
-            height: 250px;
+            right: 35px;
+            top: 225px;
+            width: 380px;
+            height: 310px;
             align-self: start;
           }
 
@@ -1057,8 +1063,12 @@ const PatsonMachilaTemplate = () => {
           }
 
           .invoice-sticker-box .sticker-frame {
-            width: 300px;
-            height: 190px;
+            width: 380px;
+            height: 250px;
+          }
+          
+          .template-hidden {
+            display: none;
           }
 
           .invoice-sticker-box .sticker-controls {
@@ -1192,13 +1202,13 @@ const PatsonMachilaTemplate = () => {
             }
             html {
               width: 210mm;
-              height: 297mm;
+              height: auto;
               margin: 0;
               padding: 0;
             }
             body {
               width: 210mm !important;
-              height: 297mm !important;
+              height: auto !important;
               margin: 0 !important;
               padding: 0 !important;
               overflow: visible !important;
@@ -1227,19 +1237,27 @@ const PatsonMachilaTemplate = () => {
               width: 210mm !important;
               max-width: 210mm !important;
               min-width: 210mm !important;
-              max-height: 297mm !important;
-              height: auto !important;
+              height: 297mm !important;
               padding: 8mm !important;
               margin: 0 !important;
-              transform: none !important;
-              transform-origin: unset !important;
+              transform: scale(0.95) !important;
+              transform-origin: top left !important;
               position: relative !important;
               left: 0 !important;
               right: 0 !important;
-              page-break-after: avoid !important;
               page-break-inside: avoid !important;
               overflow: hidden !important;
               box-sizing: border-box !important;
+            }
+            #form-container {
+              transform: scale(0.88) !important;
+              overflow: visible !important;
+            }
+            #form-container {
+              page-break-after: always !important;
+            }
+            #invoice-container {
+              page-break-before: always !important;
             }
             /* Ensure all internal content fits */
             #form-container *,
@@ -1253,60 +1271,6 @@ const PatsonMachilaTemplate = () => {
             .header-top {
               max-width: 100% !important;
               width: 100% !important;
-            }
-            /* Reduce spacing in print mode */
-            .header-box {
-              margin-bottom: 15px !important;
-              padding: 2px 10px 6px !important;
-            }
-            h3.title {
-              margin-bottom: 12px !important;
-              font-size: 14px !important;
-            }
-            .row {
-              margin-bottom: 6px !important;
-            }
-            .bottom-sections {
-              margin-top: 12px !important;
-            }
-            .procedure-container {
-              margin-top: 12px !important;
-            }
-            .procedure-box {
-              height: 60px !important;
-              padding: 6px !important;
-            }
-            /* Invoice specific spacing */
-            .invoice-section-title {
-              margin: 2px 0 2px !important;
-              font-size: 11px !important;
-            }
-            .invoice-date-row,
-            .invoice-detail-row {
-              margin-bottom: 3px !important;
-            }
-            .invoice-table {
-              margin-top: 2px !important;
-            }
-            .invoice-table-header {
-              padding: 3px 0 2px !important;
-              font-size: 10px !important;
-            }
-            .invoice-table-row {
-              padding: 2px 0 !important;
-              font-size: 10px !important;
-            }
-            .invoice-total-row {
-              margin-top: 8px !important;
-              font-size: 10px !important;
-            }
-            .invoice-table {
-              overflow-x: visible !important;
-            }
-            .invoice-table-header,
-            .invoice-table-row,
-            .invoice-total-row {
-              min-width: 0 !important;
             }
             .sticker-controls,
             .signature-controls,
@@ -1323,28 +1287,11 @@ const PatsonMachilaTemplate = () => {
             .template-switch {
               display: none;
             }
-            .signatures {
-              margin-top: 15px !important;
-              column-gap: 40px !important;
+            .template-hidden {
+              display: block !important;
             }
-            .signature-left,
-            .signature-right {
-              min-height: 100px !important;
-            }
-            .signature-area {
-              margin-top: 0 !important;
-              height: 60px !important;
-              margin-bottom: 4px !important;
-            }
-            .radiographer-name {
-              top: 60px !important;
-              font-size: 16px !important;
-            }
-            .sig-line,
-            .signature-label {
-              height: 24px !important;
-              font-size: 9px !important;
-              width: 180px !important;
+            #invoice-container {
+              page-break-before: always !important;
             }
             /* Prevent page breaks */
             .sticker-box,
@@ -1354,30 +1301,24 @@ const PatsonMachilaTemplate = () => {
             .invoice-total-row {
               page-break-inside: avoid !important;
             }
-            /* Adjust sticker boxes in print */
-            .sticker-box {
-              top: 220px !important;
-              width: 280px !important;
-              height: 200px !important;
-              right: 15px !important;
-            }
-            .sticker-frame {
-              width: 280px !important;
-              height: 160px !important;
-            }
-            .invoice-sticker-box {
-              top: 200px !important;
-              width: 260px !important;
-              height: 180px !important;
-              right: 15px !important;
-            }
-            .invoice-sticker-box .sticker-frame {
-              width: 260px !important;
-              height: 150px !important;
-            }
             /* Ensure no horizontal overflow */
             html, body {
               overflow-x: hidden !important;
+            }
+            /* Final print overrides to force fit */
+            #form-container {
+              transform: none !important;
+              zoom: 0.85 !important;
+              height: 297mm !important;
+              overflow: visible !important;
+            }
+            #form-container .sticker-box {
+              transform: scale(1.08) !important;
+              transform-origin: top left !important;
+            }
+            #invoice-container {
+              transform: none !important;
+              zoom: 0.95 !important;
             }
           }
         `}
@@ -1413,8 +1354,7 @@ const PatsonMachilaTemplate = () => {
         </button>
       </div>
 
-      {activeTemplate === 'referral' ? (
-      <div id="form-container" key="referral">
+      <div id="form-container" key="referral" className={activeTemplate === 'referral' ? '' : 'template-hidden'}>
         <form autoComplete="off">
         <div className="header-box">
           <div className="header-top">
@@ -1479,8 +1419,10 @@ const PatsonMachilaTemplate = () => {
         </div>
 
         <div className="row">
+          <div style={{ width: '370px', display: 'flex', alignItems: 'flex-end' }}>
           <span className="field-label">E-Mail Address:</span>
           <input type="email" />
+          </div>
         </div>
 
         <div className="col-2">
@@ -1757,8 +1699,7 @@ const PatsonMachilaTemplate = () => {
         </div>
         </form>
       </div>
-      ) : (
-        <div id="invoice-container" className="invoice-container" key="invoice">
+      <div id="invoice-container" className={`invoice-container ${activeTemplate === 'invoice' ? '' : 'template-hidden'}`} key="invoice">
           <form autoComplete="off">
           <div className="header-box invoice-header">
             <div className="header-top">
@@ -1966,7 +1907,6 @@ const PatsonMachilaTemplate = () => {
           </div>
           </form>
         </div>
-      )}
     </>
   );
 };
