@@ -120,6 +120,46 @@ const PatsonMachilaTemplate = () => {
     return sanitizeFilename(`${nameValue} ${fileDate} ${idValue}`) || 'PATIENT';
   };
 
+  const hasAnyValue = (element, invoiceOverride) => {
+    if (!element) return false;
+    const isInvoice = typeof invoiceOverride === 'boolean' ? invoiceOverride : activeTemplate === 'invoice';
+    const dateInput = element.querySelector(
+      `input[name="${isInvoice ? 'invoiceDate' : 'referralDate'}"]`
+    );
+    const patientNameInput = element.querySelector(
+      `input[name="${isInvoice ? 'invoicePatientName' : 'patientName'}"]`
+    );
+    const idNumberInput = element.querySelector(
+      `input[name="${isInvoice ? 'invoiceAccountNumber' : 'idNumber'}"]`
+    );
+    return Boolean(
+      (dateInput && dateInput.value && dateInput.value.trim()) ||
+      (patientNameInput && patientNameInput.value && patientNameInput.value.trim()) ||
+      (idNumberInput && idNumberInput.value && idNumberInput.value.trim())
+    );
+  };
+
+  const getPrintFilename = () => {
+    const referralElement = document.getElementById('form-container');
+    const invoiceElement = document.getElementById('invoice-container');
+    if (hasAnyValue(referralElement, false)) {
+      return buildFilename(referralElement, false);
+    }
+    if (hasAnyValue(invoiceElement, true)) {
+      return buildFilename(invoiceElement, true);
+    }
+    return 'PATIENT';
+  };
+
+  const applyPrintTitle = () => {
+    const filename = getPrintFilename();
+    document.title = filename;
+    const titleEl = document.querySelector('title');
+    if (titleEl) {
+      titleEl.textContent = filename;
+    }
+  };
+
   const generatePDF = useCallback(() => {
     const templateId = activeTemplate === 'invoice' ? 'invoice-container' : 'form-container';
     const element = document.getElementById(templateId);
@@ -168,42 +208,30 @@ const PatsonMachilaTemplate = () => {
   };
 
   const handlePrint = useCallback(async () => {
-    const referralElement = document.getElementById('form-container');
-    const invoiceElement = document.getElementById('invoice-container');
     const printContainers = ['form-container', 'invoice-container']
       .map((id) => document.getElementById(id))
       .filter(Boolean);
     await Promise.all(printContainers.map(waitForImages));
     const previousTitle = document.title;
-    let filename = 'PATIENT';
-    if (referralElement) {
-      filename = buildFilename(referralElement, false);
-    } else if (invoiceElement) {
-      filename = buildFilename(invoiceElement, true);
-    }
-    document.title = filename;
+    applyPrintTitle();
     const restoreTitle = () => {
       document.title = previousTitle;
       window.removeEventListener('afterprint', restoreTitle);
     };
     window.addEventListener('afterprint', restoreTitle);
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     window.print();
   }, [activeTemplate]);
 
   useEffect(() => {
-    const setPrintTitle = () => {
-      const referralElement = document.getElementById('form-container');
-      const invoiceElement = document.getElementById('invoice-container');
-      let filename = 'PATIENT';
-      if (referralElement) {
-        filename = buildFilename(referralElement, false);
-      } else if (invoiceElement) {
-        filename = buildFilename(invoiceElement, true);
-      }
-      document.title = filename;
+    window.addEventListener('beforeprint', applyPrintTitle);
+    window.addEventListener('focus', applyPrintTitle);
+    document.addEventListener('visibilitychange', applyPrintTitle);
+    return () => {
+      window.removeEventListener('beforeprint', applyPrintTitle);
+      window.removeEventListener('focus', applyPrintTitle);
+      document.removeEventListener('visibilitychange', applyPrintTitle);
     };
-    window.addEventListener('beforeprint', setPrintTitle);
-    return () => window.removeEventListener('beforeprint', setPrintTitle);
   }, [activeTemplate]);
 
   const processStickerFile = (file, mode = 'referral') => {
