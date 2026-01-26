@@ -91,6 +91,14 @@ const PatsonMachilaTemplate = () => {
     return trimmed;
   };
 
+  const sanitizeFilename = (value) => {
+    if (!value) return '';
+    return value
+      .replace(/[\\/:*?"<>|]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
   const buildFilename = (element, invoiceOverride = null) => {
     if (!element) {
       return 'PATIENT';
@@ -109,7 +117,7 @@ const PatsonMachilaTemplate = () => {
     const fileDate = dateInput && dateInput.value ? formatDateForFilename(dateInput.value) : formatDateShort(today);
     const nameValue = patientNameInput && patientNameInput.value ? patientNameInput.value.trim() : 'PATIENT';
     const idValue = idNumberInput && idNumberInput.value ? idNumberInput.value.trim() : 'ID';
-    return `${nameValue} ${fileDate} ${idValue}`;
+    return sanitizeFilename(`${nameValue} ${fileDate} ${idValue}`) || 'PATIENT';
   };
 
   const generatePDF = useCallback(() => {
@@ -180,6 +188,22 @@ const PatsonMachilaTemplate = () => {
     };
     window.addEventListener('afterprint', restoreTitle);
     window.print();
+  }, [activeTemplate]);
+
+  useEffect(() => {
+    const setPrintTitle = () => {
+      const referralElement = document.getElementById('form-container');
+      const invoiceElement = document.getElementById('invoice-container');
+      let filename = 'PATIENT';
+      if (referralElement) {
+        filename = buildFilename(referralElement, false);
+      } else if (invoiceElement) {
+        filename = buildFilename(invoiceElement, true);
+      }
+      document.title = filename;
+    };
+    window.addEventListener('beforeprint', setPrintTitle);
+    return () => window.removeEventListener('beforeprint', setPrintTitle);
   }, [activeTemplate]);
 
   const processStickerFile = (file, mode = 'referral') => {
